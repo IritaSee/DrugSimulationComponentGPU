@@ -16,7 +16,7 @@ all modules here are optimised for GPU and slightly different than the original 
 differences are related to GPU offset calculations
 */
 
-__device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONSTANTS, double *d_STATES, double *d_RATES, double *d_ALGEBRAIC, 
+__device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double d_conc, double *d_CONSTANTS, double *d_STATES, double *d_RATES, double *d_ALGEBRAIC, 
                                         double *d_STATES_RESULT, double *d_all_states,
                                       //  double *time, double *states, double *out_dt,  double *cai_result, 
                                       //  double *ina, double *inal,
@@ -103,7 +103,7 @@ __device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONST
     // const unsigned short last_pace_print = 3;
     const unsigned short last_drug_check_pace = p_param->find_steepest_start;
 
-    double conc = p_param->conc; //mmol
+    double conc = d_conc; //mmol
     double type = p_param->celltype;
     bool dutta = p_param->is_dutta;
     double epsilon = 10E-14;
@@ -418,7 +418,7 @@ __device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONST
     // __syncthreads();
 }
 
-__device__ void kernel_DoDrugSim_single(double *d_ic50, double *d_cvar, double *d_CONSTANTS, double *d_STATES, double *d_STATES_cache, double *d_RATES, double *d_ALGEBRAIC, 
+__device__ void kernel_DoDrugSim_single(double *d_ic50, double *d_cvar, double d_conc, double *d_CONSTANTS, double *d_STATES, double *d_STATES_cache, double *d_RATES, double *d_ALGEBRAIC, 
                                        double *time, double *states, double *out_dt,  double *cai_result, 
                                        double *ina, double *inal,
                                        double *ical, double *ito,
@@ -506,7 +506,7 @@ __device__ void kernel_DoDrugSim_single(double *d_ic50, double *d_cvar, double *
     // const unsigned int print_freq = (1./dt) * dtw;
     // unsigned short pace_count = 0;
     // unsigned short pace_steepest = 0;
-    double conc = p_param->conc; //mmol
+    double conc = d_conc; //mmol
     double type = p_param->celltype;
     bool dutta = p_param->is_dutta;
     double epsilon = 10E-14;
@@ -795,7 +795,7 @@ __device__ void kernel_DoDrugSim_single(double *d_ic50, double *d_cvar, double *
 }
 
 
-__global__ void kernel_DrugSimulation(double *d_ic50, double *d_cvar, double *d_CONSTANTS, double *d_STATES, double *d_STATES_cache, double *d_RATES, double *d_ALGEBRAIC, 
+__global__ void kernel_DrugSimulation(double *d_ic50, double *d_cvar, double *d_conc, double *d_CONSTANTS, double *d_STATES, double *d_STATES_cache, double *d_RATES, double *d_ALGEBRAIC, 
                                       double *d_STATES_RESULT, double *d_all_states,
                                       double *time, double *states, double *out_dt,  double *cai_result, 
                                       double *ina, double *inal, 
@@ -816,7 +816,7 @@ __global__ void kernel_DrugSimulation(double *d_ic50, double *d_cvar, double *d_
     // printf("in\n");
     if (p_param->is_time_series == 0){
     // printf("Calculating %d\n",thread_id);
-    kernel_DoDrugSim(d_ic50, d_cvar, d_CONSTANTS, d_STATES, d_RATES, d_ALGEBRAIC, 
+    kernel_DoDrugSim(d_ic50, d_cvar, d_conc[thread_id], d_CONSTANTS, d_STATES, d_RATES, d_ALGEBRAIC, 
                           d_STATES_RESULT, d_all_states,
                           // time, states, out_dt, cai_result,
                           // ina, inal, 
@@ -831,7 +831,7 @@ __global__ void kernel_DrugSimulation(double *d_ic50, double *d_cvar, double *d_
     }
     else if (p_param->is_time_series == 1)
     {
-      kernel_DoDrugSim_single(d_ic50, d_cvar, d_CONSTANTS, d_STATES, d_STATES_cache, d_RATES, d_ALGEBRAIC,
+      kernel_DoDrugSim_single(d_ic50, d_cvar, d_conc[thread_id], d_CONSTANTS, d_STATES, d_STATES_cache, d_RATES, d_ALGEBRAIC,
                           time, states, out_dt, cai_result,
                           ina, inal, 
                           ical, ito,

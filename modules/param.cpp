@@ -25,12 +25,13 @@ void param_t::init()
   dt = 0.005;
   // dt = 0.1;
 
-  conc = 12948.0;
+  // conc = 12948.0;
   
   dt_write = 2.0;
   inet_vm_threshold = -88.0;
   snprintf(hill_file, sizeof(hill_file), "%s", "./drugs/quinidine/IC50_samples10000.csv");
   snprintf(cache_file, sizeof(cache_file), "%s", "./result/12948.00.csv");
+  snprintf(conc_file, sizeof(cache_file), "%s", "./result/12948.00.csv");
   snprintf(drug_name, sizeof(drug_name), "%s", "quinidine");
   snprintf(concs, sizeof(concs), "%s", "12948.0");
 }

@@ -4,7 +4,7 @@
 #include <cuda.h>
 #include "cipa_t.cu"
 
-__global__ void kernel_DrugSimulation(double *d_ic50, double *d_cvar, double *d_CONSTANTS, double *d_STATES, double *d_STATES_cache, double *d_RATES, double *d_ALGEBRAIC, 
+__global__ void kernel_DrugSimulation(double *d_ic50, double *d_cvar, double *d_conc, double *d_CONSTANTS, double *d_STATES, double *d_STATES_cache, double *d_RATES, double *d_ALGEBRAIC, 
                                       double *d_STATES_RESULT, double *d_all_states,
                                       double *time, double *states, double *out_dt,  double *cai_result, 
                                       double *ina, double *inal, 
@@ -16,7 +16,7 @@ __global__ void kernel_DrugSimulation(double *d_ic50, double *d_cvar, double *d_
                                       param_t *p_param
                                       );
 
-__device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONSTANTS, double *d_STATES, double *d_RATES, double *d_ALGEBRAIC, 
+__device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double d_conc, double *d_CONSTANTS, double *d_STATES, double *d_RATES, double *d_ALGEBRAIC, 
                                         double *d_STATES_RESULT, double *d_all_states,
                                     //    double *time, double *states, double *out_dt,  double *cai_result, 
                                     //    double *ina, double *inal,
@@ -28,7 +28,7 @@ __device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONST
                                        param_t *p_param
                                        );
 
-__device__ void kernel_DoDrugSim_single(double *d_ic50, double *d_cvar, double *d_CONSTANTS, double *d_STATES, double *d_STATES_cache, double *d_RATES, double *d_ALGEBRAIC, 
+__device__ void kernel_DoDrugSim_single(double *d_ic50, double *d_cvar, double d_conc, double *d_CONSTANTS, double *d_STATES, double *d_STATES_cache, double *d_RATES, double *d_ALGEBRAIC, 
                                        double *time, double *states, double *out_dt,  double *cai_result, 
                                        double *ina, double *inal,
                                        double *ical, double *ito,

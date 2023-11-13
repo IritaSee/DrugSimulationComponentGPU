@@ -35,29 +35,29 @@ __global__ struct cipa_t{
   // multimap<double, string> time_series_data;
 
   // temporary fix for this
-  double vm_data[7500];
-  double vm_time[7500];
+  double vm_data[6000];
+  double vm_time[6000];
 
-  double dvmdt_data[7500];
-  double dvmdt_time[7500];
+  double dvmdt_data[6000];
+  double dvmdt_time[6000];
 
-  double cai_data[7500];
-  double cai_time[7500];
+  double cai_data[6000];
+  double cai_time[6000];
 
-  double ires_data[7500];
-  double ires_time[7500];
+  double ires_data[6000];
+  double ires_time[6000];
 
-  double inet_data[7500];
-  double inet_time[7500];
+  double inet_data[6000];
+  double inet_time[6000];
 
-  double qnet_data[7500];
-  double qnet_time[7500];
+  double qnet_data[6000];
+  double qnet_time[6000];
 
-  double inet4_data[7500];
-  double inet4_time[7500];
+  double inet4_data[6000];
+  double inet4_time[6000];
   
-  double qnet4_data[7500];
-  double qnet4_time[7500];
+  double qnet4_data[6000];
+  double qnet4_time[6000];
 
   // double time_series_data[7000];
   // double time_series_time[7000];
