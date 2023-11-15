@@ -212,7 +212,7 @@ int get_conc_data_from_file(const char* file_name, double *init_states)
     { // begin data tokenizing
       init_states[idx++] = strtod(token, NULL);
       // if(idx < 82){
-      //     printf("%d: %lf\n",idx-1,init_states[idx-1]);
+          // printf("%d: %lf\n",idx-1,init_states[idx-1]);
       // }
       token = strtok(NULL, ",");
     } // end data tokenizing
@@ -272,6 +272,7 @@ int main(int argc, char **argv)
 
     ic50 = (double *)malloc(14 * sample_limit * sizeof(double));
     cvar = (double *)malloc(18 * sample_limit * sizeof(double));
+    conc = (double *)malloc(sample_limit * sizeof(double));
 
     int num_of_constants = 146;
     int num_of_states = 41;
@@ -719,7 +720,7 @@ int main(int argc, char **argv)
     cipa_t *h_cipa_result;
 
     h_states = (double *)malloc((num_of_states+1) * sample_size * sizeof(double));
-    h_all_states = (double *)malloc( (num_of_states) * sample_size * p_param->find_steepest_start * sizeof(double));
+    h_all_states = (double *)malloc( num_of_states * sample_size * p_param->find_steepest_start * sizeof(double));
     h_cipa_result = (cipa_t *)malloc(sample_size * sizeof(cipa_t));
     printf("...allocating for all states, all set!\n");
 
@@ -728,7 +729,7 @@ int main(int argc, char **argv)
 
     cudaMemcpy(h_cipa_result, cipa_result, sample_size * sizeof(cipa_t), cudaMemcpyDeviceToHost);
     cudaMemcpy(h_states, d_STATES_RESULT, sample_size * (num_of_states+1) *  sizeof(double), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_all_states, d_all_states, (num_of_states) * sample_size  * p_param->find_steepest_start  *  sizeof(double), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_all_states, d_all_states, num_of_states * sample_size  * p_param->find_steepest_start  *  sizeof(double), cudaMemcpyDeviceToHost);
 
     FILE *writer;
     int check;
@@ -739,19 +740,19 @@ int main(int argc, char **argv)
     char conc_str[ENOUGH];
     char filename[500] = "./result/";
     // sprintf(conc_str, "%.2f", CONC);
-    strcat(filename,conc_str);
+    strcat(filename,"initial_values");
     // strcat(filename,"_steepest");
-      if (folder_created == false){
-        check = mkdir(filename,0777);
-        // check if directory is created or not
-        if (!check){
-          printf("Directory created\n");
-          }
-        else {
-          printf("Unable to create directory\n");  
-      }
-      folder_created = true;
-      }
+      // if (folder_created == false){
+      //   check = mkdir(filename,0777);
+      //   // check if directory is created or not
+      //   if (!check){
+      //     printf("Directory created\n");
+      //     }
+      //   else {
+      //     printf("Unable to create directory\n");  
+      // }
+      // folder_created = true;
+      // }
       
     // strcat(filename,sample_str);
     strcat(filename,".csv");
@@ -783,12 +784,18 @@ int main(int argc, char **argv)
     printf("writing each core value... \n");
     // sample loop
     for (int sample_id = 0; sample_id<sample_size; sample_id++){
+      // printf("V: %lf\n", h_all_states[sample_id * (num_of_states) + sample_id]);
       // printf("writing sample %d... \n",sample_id);
       char sample_str[ENOUGH];
       char conc_str[ENOUGH];
       char filename[500] = "./result/";
       sprintf(sample_str, "%d", sample_id);
       sprintf(conc_str, "%.2f", conc[sample_id]);
+      if(sample_id>0){
+        if(conc[sample_id] != conc[sample_id-1]){
+          folder_created = false;
+        }
+      }
       strcat(filename,conc_str);
       strcat(filename,"/");
       // printf("creating %s... \n", filename);
@@ -810,8 +817,10 @@ int main(int argc, char **argv)
       writer = fopen(filename,"w");
       for (int pacing = 0; pacing < p_param->find_steepest_start; pacing++){ //pace loop
        // if (h_time[ sample_id + (datapoint * sample_size)] == 0.0) {continue;}
-        for(int datapoint = 0; datapoint < num_of_rates; datapoint++){ // each data loop
-        fprintf(writer,"%lf,",h_all_states[((sample_id * num_of_states))+ datapoint + (sample_size * pacing)]);
+       printf("first data in sample %d pace %d: %lf\n", sample_id, pacing, h_all_states[((sample_id * num_of_states)) + 0 + (num_of_states * pacing)]);
+        for(int datapoint = 0; datapoint < num_of_states; datapoint++){ // each data loop
+        
+        fprintf(writer,"%lf,",h_all_states[((sample_id * num_of_states))+ datapoint + (num_of_states * pacing)]);
         // fprintf(writer,"%lf,",h_all_states[((sample_id * num_of_states))+ datapoint]);
         } 
         // fprintf(writer,"%d",p_param->find_steepest_start + pacing);

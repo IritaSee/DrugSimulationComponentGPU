@@ -241,8 +241,10 @@ __device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double d_conc, 
               
           is_eligible_AP = false;
           // new part ends
-		
-          printf("core: %d pace: %d states: %lf %lf %lf\n",sample_id, pace_count, d_STATES_RESULT[(sample_id * (num_of_states+1)) + 0], d_STATES_RESULT[(sample_id * (num_of_states+1)) + 1], d_STATES_RESULT[(sample_id * (num_of_states+1)) + 2]);
+          if(sample_id == 0){
+            printf("core: %d pace: %d states: %lf %lf %lf\n",sample_id, pace_count, d_STATES_RESULT[(sample_id * (num_of_states+1)) + 0], d_STATES_RESULT[(sample_id * (num_of_states+1)) + 1], d_STATES_RESULT[(sample_id * (num_of_states+1)) + 2]);
+          }
+          
           // writen = false;
         }
         
@@ -349,7 +351,9 @@ __device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double d_conc, 
           if((pace_count >= pace_max-last_drug_check_pace) && (pace_count<pace_max) ){
             int counter;
             for(counter=0; counter<num_of_states; counter++){
-              d_all_states[(sample_id * num_of_states) + counter + (sample_size * ((pace_max - pace_count - last_drug_check_pace)*(-1)))] = d_STATES[(sample_id * num_of_states) + counter];
+              // d_all_states[(sample_id * num_of_states) + counter + (sample_size * ((pace_max - pace_count - last_drug_check_pace)*(-1)))] = d_STATES[(sample_id * num_of_states) + counter];
+              // printf("%d\n",(pace_count - last_drug_check_pace));
+              d_all_states[(sample_id * num_of_states) + counter + (num_of_states * (pace_count - last_drug_check_pace))] = d_STATES[(sample_id * num_of_states) + counter];
               // d_all_states[(sample_id * num_of_states) + counter] = d_STATES[(sample_id * num_of_states) + counter];
               // printf("%lf\n", d_all_states[(sample_id * num_of_states) + counter]);
             }

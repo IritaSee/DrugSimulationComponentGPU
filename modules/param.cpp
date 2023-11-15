@@ -11,15 +11,15 @@ void param_t::init()
   gpu_index = 0;
   is_print_graph = true;
   is_using_output = false;
-  is_cvar = true;
+  is_cvar = false;
   bcl = 2000.;
-  pace_max = 1000;
+  pace_max = 10;
 
   sampling_limit = 6000;
 
-  is_time_series = true;
+  is_time_series = false;
 
-  find_steepest_start = 250;
+  find_steepest_start = 5;
 
   celltype = 0.;
   dt = 0.005;
@@ -29,11 +29,11 @@ void param_t::init()
   
   dt_write = 2.0;
   inet_vm_threshold = -88.0;
-  snprintf(hill_file, sizeof(hill_file), "%s", "./drugs/quinidine/IC50_samples10000.csv");
-  snprintf(cache_file, sizeof(cache_file), "%s", "./result/12948.00.csv");
-  snprintf(conc_file, sizeof(cache_file), "%s", "./result/12948.00.csv");
-  snprintf(drug_name, sizeof(drug_name), "%s", "quinidine");
-  snprintf(concs, sizeof(concs), "%s", "12948.0");
+  snprintf(hill_file, sizeof(hill_file), "%s", "./drugs/bepridil/IC50_samples10.csv");
+  // snprintf(cache_file, sizeof(cache_file), "%s", "./result/12948.00.csv");
+  snprintf(conc_file, sizeof(conc_file), "%s", "./drugs/bepridil/concentration.csv");
+  snprintf(drug_name, sizeof(drug_name), "%s", "bepridil");
+  snprintf(concs, sizeof(concs), "%s", "99.0");
 }
 
 void param_t::show_val()
