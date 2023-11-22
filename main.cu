@@ -240,11 +240,6 @@ int main(int argc, char **argv)
     cipa_t *temp_result, *cipa_result;
 
 
-    // input variables for cell simulation
-    param_t *p_param, *d_p_param;
-	  p_param = new param_t();
-  	p_param->init();
-
     p_param->show_val();
 
     int num_of_constants = 146;
