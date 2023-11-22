@@ -270,21 +270,21 @@ int main(int argc, char **argv)
     double *d_RATES;
     double *d_STATES;
 
-    double *time;
-    double *dt;
-    double *states;
-    double *ical;
-    double *inal;
-    double *cai_result;
-    double *ina;
-    double *ito;
-    double *ikr;
-    double *iks;
-    double *ik1;
+    double *d_STATES_RESULT;
+
+    // double *time;
+    // double *dt;
+    // double *states;
+    // double *ical;
+    // double *inal;
+    // double *cai_result;
+    // double *ina;
+    // double *ito;
+    // double *ikr;
+    // double *iks;
+    // double *ik1;
     cipa_t *temp_result, *cipa_result;
 
-    static const int CALCIUM_SCALING = 1000000;
-    static const int CURRENT_SCALING = 1000;
 
     int num_of_constants = 146;
     int num_of_states = 41;
@@ -323,17 +323,18 @@ int main(int argc, char **argv)
     cudaMalloc(&temp_result, sample_size * sizeof(cipa_t));
     cudaMalloc(&cipa_result, sample_size * sizeof(cipa_t));
 
-    cudaMalloc(&time, sample_size * datapoint_size * sizeof(double)); 
-    cudaMalloc(&dt, sample_size * datapoint_size * sizeof(double)); 
-    cudaMalloc(&states, sample_size * datapoint_size * sizeof(double));
-    cudaMalloc(&ical, sample_size * datapoint_size * sizeof(double));
-    cudaMalloc(&inal, sample_size * datapoint_size * sizeof(double));
-    cudaMalloc(&cai_result, sample_size * datapoint_size * sizeof(double));
-    cudaMalloc(&ina, sample_size * datapoint_size * sizeof(double));
-    cudaMalloc(&ito, sample_size * datapoint_size * sizeof(double));
-    cudaMalloc(&ikr, sample_size * datapoint_size * sizeof(double));
-    cudaMalloc(&iks, sample_size * datapoint_size * sizeof(double));
-    cudaMalloc(&ik1, sample_size * datapoint_size * sizeof(double));
+    // cudaMalloc(&time, sample_size * datapoint_size * sizeof(double)); 
+    // cudaMalloc(&dt, sample_size * datapoint_size * sizeof(double)); 
+    // cudaMalloc(&states, sample_size * datapoint_size * sizeof(double));
+    // cudaMalloc(&ical, sample_size * datapoint_size * sizeof(double));
+    // cudaMalloc(&inal, sample_size * datapoint_size * sizeof(double));
+    // cudaMalloc(&cai_result, sample_size * datapoint_size * sizeof(double));
+    // cudaMalloc(&ina, sample_size * datapoint_size * sizeof(double));
+    // cudaMalloc(&ito, sample_size * datapoint_size * sizeof(double));
+    // cudaMalloc(&ikr, sample_size * datapoint_size * sizeof(double));
+    // cudaMalloc(&iks, sample_size * datapoint_size * sizeof(double));
+    // cudaMalloc(&ik1, sample_size * datapoint_size * sizeof(double));
+    cudaMalloc(&d_STATES_RESULT, num_of_states * sample_size * sizeof(double));
 
     printf("Copying sample files to GPU memory space \n");
     cudaMalloc(&d_ic50, sample_size * 14 * sizeof(double));
@@ -368,12 +369,14 @@ int main(int argc, char **argv)
     // initscr();
     // printf("[____________________________________________________________________________________________________]  0.00 %% \n");
 
-    kernel_DrugSimulation<<<block,thread>>>(d_ic50, d_cvar, d_CONSTANTS, d_STATES, d_RATES, d_ALGEBRAIC, 
-                                              time, states, dt, cai_result,
-                                              ina, inal, 
-                                              ical, ito,
-                                              ikr, iks, 
-                                              ik1,
+
+    kernel_DrugSimulation<<<block,thread>>>(d_ic50, d_CONSTANTS, d_STATES, d_RATES, d_ALGEBRAIC, 
+                                              d_STATES_RESULT,
+                                              // time, states, dt, cai_result,
+                                              // ina, inal, 
+                                              // ical, ito,
+                                              // ikr, iks, 
+                                              // ik1,
                                               sample_size,
                                               temp_result, cipa_result,
                                               d_p_param
@@ -385,65 +388,28 @@ int main(int argc, char **argv)
     
 
     printf("allocating memory for computation result in the CPU, malloc style \n");
-    double *h_states,*h_time,*h_dt,*h_ical,*h_inal,*h_cai_result,*h_ina,*h_ito,*h_ikr,*h_iks,*h_ik1;
-    cipa_t *h_cipa_result;
+    double *h_states;
 
-    h_states = (double *)malloc(datapoint_size * sample_size * sizeof(double));
-    printf("...allocated for STATES, \n");
-    h_time = (double *)malloc(datapoint_size * sample_size * sizeof(double));
-    printf("...allocated for time, \n");
-    h_dt = (double *)malloc(datapoint_size * sample_size * sizeof(double));
-    printf("...allocated for dt, \n");
-    h_cai_result= (double *)malloc(datapoint_size * sample_size * sizeof(double));
-    printf("...allocated for Cai, \n");
-     h_ina= (double *)malloc(datapoint_size * sample_size * sizeof(double));
-    printf("...allocated for iNa, \n");
-     h_ito= (double *)malloc(datapoint_size * sample_size * sizeof(double));
-    printf("...allocated for ito, \n");
-     h_ikr= (double *)malloc(datapoint_size * sample_size * sizeof(double));
-    printf("...allocated for ikr, \n");
-     h_iks= (double *)malloc(datapoint_size * sample_size * sizeof(double));
-    printf("...allocated for iks, \n");
-     h_ik1= (double *)malloc(datapoint_size * sample_size * sizeof(double));
-    printf("...allocated for ik1, \n");
-     h_ical= (double *)malloc(datapoint_size * sample_size * sizeof(double));
-    printf("...allocated for ICaL, \n");
-    h_inal = (double *)malloc(datapoint_size * sample_size * sizeof(double));
-    h_cipa_result = (cipa_t *)malloc( sample_size * sizeof(cipa_t));
-    printf("...allocating for INaL and postprocessing, all set!\n");
+    h_states = (double *)malloc(num_of_states * sample_size * sizeof(double));
+    printf("...allocating for all states, all set!\n");
 
     ////// copy the data back to CPU, and write them into file ////////
     printf("copying the data back to the CPU \n");
-    cudaMemcpy(h_states, states, sample_size * datapoint_size * sizeof(double), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_time, time, sample_size * datapoint_size * sizeof(double), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_dt, dt, sample_size * datapoint_size * sizeof(double), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_ical, ical, sample_size * datapoint_size * sizeof(double), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_inal, inal, sample_size * datapoint_size * sizeof(double), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_cai_result, cai_result, sample_size * datapoint_size * sizeof(double), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_ina, ina, sample_size * datapoint_size * sizeof(double), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_ito, ito, sample_size * datapoint_size * sizeof(double), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_ikr, ikr, sample_size * datapoint_size * sizeof(double), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_iks, iks, sample_size * datapoint_size * sizeof(double), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_ik1, ik1, sample_size * datapoint_size * sizeof(double), cudaMemcpyDeviceToHost);
     
-    cudaMemcpy(h_cipa_result, cipa_result, sample_size * sizeof(cipa_t), cudaMemcpyDeviceToHost);
-    
+
+    cudaMemcpy(h_states, d_STATES_RESULT, sample_size * num_of_states *  sizeof(double), cudaMemcpyDeviceToHost);
 
     FILE *writer;
     int check;
     bool folder_created = false;
 
     printf("writing to file... \n");
-    // sample loop
-    for (int sample_id = 0; sample_id<sample_size; sample_id++){
-      // printf("writing sample %d... \n",sample_id);
-      char sample_str[ENOUGH];
-      char conc_str[ENOUGH];
-      char filename[500] = "./result/";
-      sprintf(sample_str, "%d", sample_id);
-      sprintf(conc_str, "%.2f", CONC);
-      strcat(filename,conc_str);
-      strcat(filename,"/");
+    // char sample_str[ENOUGH];
+    char conc_str[ENOUGH];
+    cha r filename[150] = "./result/";
+    sprintf(conc_str, "%lf", CONC);
+    strcat(filename,conc_str);
+    // strcat(filename,"/");
       if (folder_created == false){
         check = mkdir(filename,0777);
         // check if directory is created or not
@@ -456,85 +422,26 @@ int main(int argc, char **argv)
       folder_created = true;
       }
       
-      strcat(filename,sample_str);
-      strcat(filename,".csv");
-
-      writer = fopen(filename,"w");
-      fprintf(writer, "Time,Vm,dVm/dt,Cai(x1.000.000)(milliM->picoM),INa(x1.000)(microA->picoA),INaL(x1.000)(microA->picoA),ICaL(x1.000)(microA->picoA),IKs(x1.000)(microA->picoA),IKr(x1.000)(microA->picoA),IK1(x1.000)(microA->picoA),Ito(x1.000)(microA->picoA)\n"); 
-      for (int datapoint = 0; datapoint<datapoint_size; datapoint++){
+    // strcat(filename,sample_str);
+    strcat(filename,".csv");
+    // sample loop
+    for (int sample_id = 0; sample_id<sample_size; sample_id++){
+      writer = fopen(filename,"a");
+      // fprintf(writer, "Time,Vm,dVm/dt,Cai(x1.000.000)(milliM->picoM),INa(x1.000)(microA->picoA),INaL(x1.000)(microA->picoA),ICaL(x1.000)(microA->picoA),IKs(x1.000)(microA->picoA),IKr(x1.000)(microA->picoA),IK1(x1.000)(microA->picoA),Ito(x1.000)(microA->picoA)\n"); 
+      for (int datapoint = 0; datapoint<num_of_states-1; datapoint++){
        // if (h_time[ sample_id + (datapoint * sample_size)] == 0.0) {continue;}
-        fprintf(writer,"%lf,%.lf,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n", // change this into string, or limit the decimal accuracy, so we can decrease filesize
-        h_time[ sample_id + (datapoint * sample_size)],
-        h_states[ sample_id + (datapoint * sample_size)],
-        h_dt[ sample_id + (datapoint * sample_size)],
-        h_cai_result[ sample_id + (datapoint * sample_size)]*CALCIUM_SCALING, 
-        
-        h_ina[ sample_id + (datapoint * sample_size)]*CURRENT_SCALING, 
-        h_inal[ sample_id + (datapoint * sample_size)]*CURRENT_SCALING, 
 
-        h_ical[ sample_id + (datapoint * sample_size)]*CURRENT_SCALING,
-        h_iks[ sample_id + (datapoint * sample_size)]*CURRENT_SCALING, 
+        fprintf(writer,"%lf,", // change this into string, or limit the decimal accuracy, so we can decrease filesize
+        h_states[ (sample_id * num_of_states) + datapoint]
 
-        h_ikr[ sample_id + (datapoint * sample_size)]*CURRENT_SCALING,
-        h_ik1[ sample_id + (datapoint * sample_size)]*CURRENT_SCALING,
-
-        h_ito[ sample_id + (datapoint * sample_size)]*CURRENT_SCALING  
         );
       }
+      fprintf(writer,"%lf\n", // write last data
+        h_states[ (sample_id * num_of_states) + num_of_states-1]
+        );
+
       fclose(writer);
     }
-
-
-    printf("writing each biomarkers value... \n");
-    // sample loop
-      char conc_str[ENOUGH];
-      char filename[500] = "./result/";
-      // sprintf(sample_str, "%d", sample_id);
-      sprintf(conc_str, "%.2f", CONC);
-      strcat(filename,conc_str);
-      strcat(filename,"/");
-      // printf("creating %s... \n", filename);
-      if (folder_created == false){
-        check = mkdir(filename,0777);
-        // check if directory is created or not
-        if (!check){
-          printf("Directory created\n");
-          }
-        else {
-          printf("Unable to create directory\n");  
-      }
-      folder_created = true;
-      }
-      
-      // strcat(filename,sample_str);
-    strcat(filename,"_biomarkers.csv");
-
-    writer = fopen(filename,"a");
-
-    fprintf(writer, "sample,qnet_ap,qnet4_ap,inal_auc_ap,ical_auc_ap,qnet_cl,qnet4_cl,inal_auc_cl,ical_auc_cl,dvmdt_repol,vm_peak,vm_valley\n"); 
-    for (int sample_id = 0; sample_id<sample_size; sample_id++){
-      // printf("writing sample %d... \n",sample_id);
-      
-      fprintf(writer,"%d,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf\n", // change this into string, or limit the decimal accuracy, so we can decrease filesize
-        sample_id,
-        h_cipa_result[sample_id].qnet_ap,
-        h_cipa_result[sample_id].qnet4_ap,
-        h_cipa_result[sample_id].inal_auc_ap,
-        h_cipa_result[sample_id].ical_auc_ap,
-        
-        h_cipa_result[sample_id].qnet_cl,
-        h_cipa_result[sample_id].qnet4_cl,
-
-        h_cipa_result[sample_id].inal_auc_cl,
-        h_cipa_result[sample_id].ical_auc_cl,
-
-        h_cipa_result[sample_id].dvmdt_repol,
-        h_cipa_result[sample_id].vm_peak,
-
-        h_cipa_result[sample_id].vm_valley
-        );
-    }
-     fclose(writer);
 
     toc();
     

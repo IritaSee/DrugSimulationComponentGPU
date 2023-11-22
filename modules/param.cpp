@@ -21,7 +21,6 @@ void param_t::init()
   // dt = 0.1;
 
   conc = 99.0;
-  
   // dt_write = 2.0;
   // inet_vm_threshold = -88.0;
   

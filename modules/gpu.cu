@@ -16,12 +16,13 @@ all modules here are optimised for GPU and slightly different than the original 
 differences are related to GPU offset calculations
 */
 
-__device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONSTANTS, double *d_STATES, double *d_RATES, double *d_ALGEBRAIC, 
-                                       double *time, double *states, double *out_dt,  double *cai_result, 
-                                       double *ina, double *inal,
-                                       double *ical, double *ito,
-                                       double *ikr, double *iks, 
-                                       double *ik1,
+__device__ void kernel_DoDrugSim(double *d_ic50, double *d_CONSTANTS, double *d_STATES, double *d_RATES, double *d_ALGEBRAIC, 
+                                        double *d_STATES_RESULT, 
+                                      //  double *time, double *states, double *out_dt,  double *cai_result, 
+                                      //  double *ina, double *inal,
+                                      //  double *ical, double *ito,
+                                      //  double *ikr, double *iks, 
+                                      //  double *ik1,
                                        double *tcurr, double *dt, unsigned short sample_id, unsigned int sample_size,
                                        cipa_t *temp_result, cipa_t *cipa_result,
                                        param_t *p_param
@@ -116,6 +117,8 @@ __device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONST
     double t_peak_capture = 0.0;
     unsigned short pace_steepest = 0;
 
+    bool init_states_captured = false;
+
     // qnet_ap/inet_ap values
 	  double inet_ap, qnet_ap, inet4_ap, qnet4_ap, inet_cl, qnet_cl, inet4_cl, qnet4_cl;
 	  double inal_auc_ap, ical_auc_ap,inal_auc_cl, ical_auc_cl;
@@ -197,6 +200,7 @@ __device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONST
               cipa_result[sample_id].vm_peak = temp_result[sample_id].vm_peak;
               cipa_result[sample_id].vm_valley = d_STATES[(sample_id * num_of_states) +V];
               is_peak = true;
+              init_states_captured = false;
               }
             else{
               is_peak = false;
@@ -359,66 +363,38 @@ __device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONST
             temp_result[sample_id].dvmdt_data[cipa_datapoint] = d_RATES[(sample_id * num_of_rates) +V];
             temp_result[sample_id].dvmdt_time[cipa_datapoint] = tcurr[sample_id];
 
+            if(init_states_captured == false){
+              for(int counter=0; counter<num_of_states; counter++){
+                d_STATES_RESULT[(sample_id * num_of_states) + counter] = d_STATES[(sample_id * num_of_states) + counter];
+              }
+              init_states_captured = true;
+            }
+
             // time series result
 
-            time[input_counter + sample_id] = tcurr[sample_id];
-            states[input_counter + sample_id] = d_STATES[V + (sample_id * num_of_states)];
+            // time[input_counter + sample_id] = tcurr[sample_id];
+            // states[input_counter + sample_id] = d_STATES[V + (sample_id * num_of_states)];
             
-            out_dt[input_counter + sample_id] = d_RATES[V + (sample_id * num_of_states)];
+            // out_dt[input_counter + sample_id] = d_RATES[V + (sample_id * num_of_states)];
+
             
-            cai_result[input_counter + sample_id] = d_ALGEBRAIC[cai + (sample_id * num_of_algebraic)];
+            // cai_result[input_counter + sample_id] = d_ALGEBRAIC[cai + (sample_id * num_of_algebraic)];
 
-            ina[input_counter + sample_id] = d_ALGEBRAIC[INa + (sample_id * num_of_algebraic)] ;
-            inal[input_counter + sample_id] = d_ALGEBRAIC[INaL + (sample_id * num_of_algebraic)] ;
+            // ina[input_counter + sample_id] = d_ALGEBRAIC[INa + (sample_id * num_of_algebraic)] ;
+            // inal[input_counter + sample_id] = d_ALGEBRAIC[INaL + (sample_id * num_of_algebraic)] ;
 
-            ical[input_counter + sample_id] = d_ALGEBRAIC[ICaL + (sample_id * num_of_algebraic)] ;
-            ito[input_counter + sample_id] = d_ALGEBRAIC[Ito + (sample_id * num_of_algebraic)] ;
+            // ical[input_counter + sample_id] = d_ALGEBRAIC[ICaL + (sample_id * num_of_algebraic)] ;
+            // ito[input_counter + sample_id] = d_ALGEBRAIC[Ito + (sample_id * num_of_algebraic)] ;
 
-            ikr[input_counter + sample_id] = d_ALGEBRAIC[IKr + (sample_id * num_of_algebraic)] ;
-            iks[input_counter + sample_id] = d_ALGEBRAIC[IKs + (sample_id * num_of_algebraic)] ;
+            // ikr[input_counter + sample_id] = d_ALGEBRAIC[IKr + (sample_id * num_of_algebraic)] ;
+            // iks[input_counter + sample_id] = d_ALGEBRAIC[IKs + (sample_id * num_of_algebraic)] ;
 
-            ik1[input_counter + sample_id] = d_ALGEBRAIC[IK1 + (sample_id * num_of_algebraic)] ;
+            // ik1[input_counter + sample_id] = d_ALGEBRAIC[IK1 + (sample_id * num_of_algebraic)] ;
 
             input_counter = input_counter + sample_size;
             cipa_datapoint = cipa_datapoint + 1; // this causes the resource usage got so mega and crashed in running
 
-            //time series ends
-          
-          //   // snprintf( buffer, sizeof(buffer), "%.2lf,%.2lf,%.0lf,%.0lf,%.0lf,%.0lf,%0.lf,%.0lf,%.0lf,%.0lf",
-          //   // 		d_STATES[(sample_id * num_of_states) +V], d_RATES[(sample_id * num_of_rates) +V], d_STATES[(sample_id * num_of_states) +cai]*CALCIUM_SCALING,
-          //   // 		d_ALGEBRAIC[(sample_id * num_of_algebraic) +INa]*CURRENT_SCALING, d_ALGEBRAIC[(sample_id * num_of_algebraic) +INaL]*CURRENT_SCALING, 
-          //   // 		d_ALGEBRAIC[(sample_id * num_of_algebraic) +ICaL]*CURRENT_SCALING, d_ALGEBRAIC[(sample_id * num_of_algebraic) +Ito]*CURRENT_SCALING,
-          //   // 		d_ALGEBRAIC[(sample_id * num_of_algebraic) +IKr]*CURRENT_SCALING, d_ALGEBRAIC[(sample_id * num_of_algebraic) +IKs]*CURRENT_SCALING, 
-          //   // 		d_ALGEBRAIC[(sample_id * num_of_algebraic) +IK1]*CURRENT_SCALING);
-          //   // temp_result.time_series_data.insert( std::pair<double, string> (tcurr[sample_id], string(buffer)) );
-          // }
-          // new code ends here (last 250 pace operation)
-            
-          // tcurr[sample_id] = tcurr[sample_id] + dt[sample_id];
-
-          //temporary writing method
-          // if (pace_count > pace_max-2)
-          //{
-             // time[input_counter + sample_id] = tcurr[sample_id];
-             // states[input_counter + sample_id] = d_STATES[V + (sample_id * num_of_states)];
-            
-             // out_dt[input_counter + sample_id] = dt[sample_id];
-            
-             // cai_result[input_counter + sample_id] = d_ALGEBRAIC[cai + (sample_id * num_of_algebraic)];
-
-             // ina[input_counter + sample_id] = d_ALGEBRAIC[INa + (sample_id * num_of_algebraic)] ;
-             // inal[input_counter + sample_id] = d_ALGEBRAIC[INaL + (sample_id * num_of_algebraic)] ;
-
-             // ical[input_counter + sample_id] = d_ALGEBRAIC[ICaL + (sample_id * num_of_algebraic)] ;
-             // ito[input_counter + sample_id] = d_ALGEBRAIC[Ito + (sample_id * num_of_algebraic)] ;
-
-             // ikr[input_counter + sample_id] = d_ALGEBRAIC[IKr + (sample_id * num_of_algebraic)] ;
-             // iks[input_counter + sample_id] = d_ALGEBRAIC[IKs + (sample_id * num_of_algebraic)] ;
-
-             // ik1[input_counter + sample_id] = d_ALGEBRAIC[IK1 + (sample_id * num_of_algebraic)] ;
-
-             // input_counter = input_counter + sample_size;
-            
+           
              } // temporary guard ends here
 
 		    } // end the last 250 pace operations
@@ -431,12 +407,13 @@ __device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONST
 
 
 
-__global__ void kernel_DrugSimulation(double *d_ic50, double *d_cvar, double *d_CONSTANTS, double *d_STATES, double *d_RATES, double *d_ALGEBRAIC, 
-                                      double *time, double *states, double *out_dt,  double *cai_result, 
-                                      double *ina, double *inal, 
-                                      double *ical, double *ito,
-                                      double *ikr, double *iks,
-                                      double *ik1,
+__global__ void kernel_DrugSimulation(double *d_ic50, double *d_CONSTANTS, double *d_STATES, double *d_RATES, double *d_ALGEBRAIC, 
+                                      double *d_STATES_RESULT, 
+                                      // double *time, double *states, double *out_dt,  double *cai_result, 
+                                      // double *ina, double *inal, 
+                                      // double *ical, double *ito,
+                                      // double *ikr, double *iks,
+                                      // double *ik1,
                                       unsigned int sample_size,
                                       cipa_t *temp_result, cipa_t *cipa_result,
                                       param_t *p_param
@@ -449,14 +426,14 @@ __global__ void kernel_DrugSimulation(double *d_ic50, double *d_cvar, double *d_
     // cipa_t temp_per_sample[2000];
     // cipa_t cipa_per_sample[2000];
     // printf("in\n");
-    
     // printf("Calculating %d\n",thread_id);
-    kernel_DoDrugSim(d_ic50, d_cvar, d_CONSTANTS, d_STATES, d_RATES, d_ALGEBRAIC, 
-                          time, states, out_dt, cai_result,
-                          ina, inal, 
-                          ical, ito,
-                          ikr, iks, 
-                          ik1,
+    kernel_DoDrugSim(d_ic50, d_CONSTANTS, d_STATES, d_RATES, d_ALGEBRAIC, 
+                          d_STATES_RESULT, 
+                          // time, states, out_dt, cai_result,
+                          // ina, inal, 
+                          // ical, ito,
+                          // ikr, iks, 
+                          // ik1,
                           time_for_each_sample, dt_for_each_sample, thread_id, sample_size,
                           temp_result, cipa_result,
                           p_param
