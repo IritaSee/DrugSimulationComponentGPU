@@ -418,10 +418,10 @@ int main(int argc, char **argv)
     strcat(filename,"_state_only.csv");
     // sample loop
     writer = fopen(filename,"w");
+    fprintf(writer, "V,CaMKt,cass,nai,nass,ki,kss,cansr,cajsr,cai,m,hf,hs,j,hsp,jp,mL,hL,hLp,a,iF,iS,ap,iFp,iSp,d,ff,fs,fcaf,fcas,jca,ffp,fcafp,nca,xrf,xrs,xs1,xs2,xk1,Jrelnp,Jrelp,\n"); 
     for (int sample_id = 0; sample_id<sample_size; sample_id++){
       
       // fprintf(writer,"%d,",sample_id);
-      // fprintf(writer, "Time,Vm,dVm/dt,Cai(x1.000.000)(milliM->picoM),INa(x1.000)(microA->picoA),INaL(x1.000)(microA->picoA),ICaL(x1.000)(microA->picoA),IKs(x1.000)(microA->picoA),IKr(x1.000)(microA->picoA),IK1(x1.000)(microA->picoA),Ito(x1.000)(microA->picoA)\n"); 
       for (int datapoint = 0; datapoint<num_of_states-1; datapoint++){
        // if (h_time[ sample_id + (datapoint * sample_size)] == 0.0) {continue;}
         fprintf(writer,"%lf,", // change this into string, or limit the decimal accuracy, so we can decrease filesize
