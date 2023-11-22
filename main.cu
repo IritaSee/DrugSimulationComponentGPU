@@ -19,7 +19,7 @@
 #define ENOUGH ((CHAR_BIT * sizeof(int) - 1) / 3 + 2)
 char buffer[255];
 
-const unsigned int datapoint_size = 7900;
+const unsigned int datapoint_size = 7500;
 const unsigned int sample_limit = 10000;
 
 
@@ -230,17 +230,6 @@ int main(int argc, char **argv)
 	// enable real-time output in stdout
 	setvbuf( stdout, NULL, _IONBF, 0 );
 	
-// #ifndef _WIN32
-// 	MPI_Init( &argc, &argv );
-// 	MPI_Comm_size( MPI_COMM_WORLD, &mympi::size );
-// 	MPI_Comm_rank( MPI_COMM_WORLD, &mympi::rank );
-// 	MPI_Get_processor_name(mympi::host_name, &mympi::host_name_len);
-// #else
-// 	mympi::size = 1;
-// 	mympi::rank = 0;
-// 	snprintf(mympi::host_name,sizeof(mympi::host_name),"%s","host");
-// 	mympi::host_name_len = 4;
-// #endif
 
 // NEW CODE STARTS HERE //
     // mycuda *thread_id;
@@ -258,7 +247,6 @@ int main(int argc, char **argv)
     double *cvar;
 
     ic50 = (double *)malloc(14 * sample_limit * sizeof(double));
-    cvar = (double *)malloc(18 * sample_limit * sizeof(double));
 
 
     const double CONC = p_param->conc;
@@ -338,10 +326,10 @@ int main(int argc, char **argv)
 
     printf("Copying sample files to GPU memory space \n");
     cudaMalloc(&d_ic50, sample_size * 14 * sizeof(double));
-    cudaMalloc(&d_cvar, sample_size * 18 * sizeof(double));
+    // cudaMalloc(&d_cvar, sample_size * 18 * sizeof(double));
     
     cudaMemcpy(d_ic50, ic50, sample_size * 14 * sizeof(double), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_cvar, cvar, sample_size * 18 * sizeof(double), cudaMemcpyHostToDevice);
+    // cudaMemcpy(d_cvar, cvar, sample_size * 18 * sizeof(double), cudaMemcpyHostToDevice);
     cudaMemcpy(d_p_param, p_param, sizeof(param_t), cudaMemcpyHostToDevice);
 
     // // Get the maximum number of active blocks per multiprocessor
@@ -370,7 +358,7 @@ int main(int argc, char **argv)
     // printf("[____________________________________________________________________________________________________]  0.00 %% \n");
 
 
-    kernel_DrugSimulation<<<block,thread>>>(d_ic50, d_CONSTANTS, d_STATES, d_RATES, d_ALGEBRAIC, 
+    kernel_DrugSimulation<<<block,thread>>>(d_ic50, d_cvar, d_CONSTANTS, d_STATES, d_RATES, d_ALGEBRAIC, 
                                               d_STATES_RESULT,
                                               // time, states, dt, cai_result,
                                               // ina, inal, 
@@ -389,8 +377,10 @@ int main(int argc, char **argv)
 
     printf("allocating memory for computation result in the CPU, malloc style \n");
     double *h_states;
+    cipa_t *h_cipa_result;
 
     h_states = (double *)malloc(num_of_states * sample_size * sizeof(double));
+    h_cipa_result = (cipa_t *)malloc(sample_size * sizeof(cipa_t));
     printf("...allocating for all states, all set!\n");
 
     ////// copy the data back to CPU, and write them into file ////////
@@ -398,6 +388,7 @@ int main(int argc, char **argv)
     
 
     cudaMemcpy(h_states, d_STATES_RESULT, sample_size * num_of_states *  sizeof(double), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_cipa_result, cipa_result, sample_size *  sizeof(cipa_t), cudaMemcpyDeviceToHost);
 
     FILE *writer;
     int check;
@@ -406,10 +397,10 @@ int main(int argc, char **argv)
     printf("writing to file... \n");
     // char sample_str[ENOUGH];
     char conc_str[ENOUGH];
-    cha r filename[150] = "./result/";
+    char filename[500] = "./result/"; char dvmdt_file[500];
     sprintf(conc_str, "%lf", CONC);
     strcat(filename,conc_str);
-    // strcat(filename,"/");
+    strcat(filename,"/");
       if (folder_created == false){
         check = mkdir(filename,0777);
         // check if directory is created or not
@@ -422,26 +413,43 @@ int main(int argc, char **argv)
       folder_created = true;
       }
       
-    // strcat(filename,sample_str);
-    strcat(filename,".csv");
+    // strcat(filename,conc_str);
+    strcpy(dvmdt_file,filename);
+    strcat(filename,"_state_only.csv");
     // sample loop
+    writer = fopen(filename,"w");
     for (int sample_id = 0; sample_id<sample_size; sample_id++){
-      writer = fopen(filename,"a");
+      
+      // fprintf(writer,"%d,",sample_id);
       // fprintf(writer, "Time,Vm,dVm/dt,Cai(x1.000.000)(milliM->picoM),INa(x1.000)(microA->picoA),INaL(x1.000)(microA->picoA),ICaL(x1.000)(microA->picoA),IKs(x1.000)(microA->picoA),IKr(x1.000)(microA->picoA),IK1(x1.000)(microA->picoA),Ito(x1.000)(microA->picoA)\n"); 
       for (int datapoint = 0; datapoint<num_of_states-1; datapoint++){
        // if (h_time[ sample_id + (datapoint * sample_size)] == 0.0) {continue;}
-
         fprintf(writer,"%lf,", // change this into string, or limit the decimal accuracy, so we can decrease filesize
         h_states[ (sample_id * num_of_states) + datapoint]
-
         );
       }
       fprintf(writer,"%lf\n", // write last data
         h_states[ (sample_id * num_of_states) + num_of_states-1]
+        
+        // 22.00
         );
-
-      fclose(writer);
+    
     }
+    fclose(writer);
+
+    //dvmdt file
+    strcat(dvmdt_file,"_dvmdt.csv");
+    writer = fopen(dvmdt_file,"w");
+    fprintf(writer, "Sample,dVm/dt\n"); 
+    for (int sample_id = 0; sample_id<sample_size; sample_id++){
+      
+      fprintf(writer,"%d,%lf\n", // write last data
+        sample_id,
+        h_cipa_result[sample_id].dvmdt_repol
+        );
+    
+    }
+    fclose(writer);
 
     toc();
     
