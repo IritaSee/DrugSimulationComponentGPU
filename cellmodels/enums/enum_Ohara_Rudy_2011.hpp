@@ -346,7 +346,16 @@ enum E_CONSTANTS_T{
   upScale = 108,
   stim_start = 139,
   BCL = 140,
-  stim_end  = 141
+  //stim_end  = 141,
+
+  // Added by ALI
+  // Additional constants for cvar
+  Jrel_scale = 141,
+  Jup_scale = 142,
+  Jtr_scale = 143,
+  Jleak_scale = 144,
+  //KCaMK_scale = 144,
+
 };
 
 enum E_STATES_T{

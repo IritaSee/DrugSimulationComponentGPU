@@ -62,6 +62,8 @@ void edison_assign_params(int argc, char *argv[], param_t *p_param)
       strncpy(file_name, argv[idx + 1], sizeof(file_name));
     else if (!strcasecmp(argv[idx], "-hill_file"))
       strncpy(p_param->hill_file, argv[idx + 1], sizeof(p_param->hill_file));
+    // else if (!strcasecmp(argv[idx], "-cvar_file"))
+    //   strncpy(p_param->hill_file, argv[idx + 2], sizeof(p_param->cvar_file));
   }  
 
   is_default = false;
@@ -84,32 +86,29 @@ void edison_assign_params(int argc, char *argv[], param_t *p_param)
     else if (strcasecmp(key, "Is_Dutta") == 0) {
       p_param->is_dutta = strtol( value, NULL, 10 );
     }
-    else if (strcasecmp(key, "Is_Print_Graph") == 0) {
-      p_param->is_print_graph = strtol( value, NULL, 10 );
+    else if (strcasecmp(key, "Use_Conductance_Variability") == 0) {
+      p_param->is_cvar = strtol( value, NULL, 10 );
     }
-    else if (strcasecmp(key, "Is_Using_Output") == 0) {
-      p_param->is_using_output = strtol( value, NULL, 10 );
+    else if (strcasecmp(key, "Pace_Find_Steepest") == 0) {
+      p_param->find_steepest_start = strtod( value, NULL);
+    }
+    else if (strcasecmp(key, "GPU_Index") == 0) {
+      p_param->gpu_index = strtod( value, NULL);
     }
     else if (strcasecmp(key, "Basic_Cycle_Length") == 0) {
       p_param->bcl = strtod( value, NULL );
     }
     else if (strcasecmp(key, "Number_of_Pacing") == 0) {
-      p_param->pace_max = strtol( value, NULL, 10 );
+      p_param->pace_max = strtod( value, NULL );
     }
     else if (strcasecmp(key, "Time_Step") == 0) {
       p_param->dt = strtod( value, NULL );
     }
-    else if (strcasecmp(key, "Write_Step") == 0) {
-      p_param->dt_write = strtod( value, NULL );
-    }
     else if (strcasecmp(key, "Drug_Name") == 0) {
       strncpy( p_param->drug_name, value, sizeof(p_param->concs) );
     }
-    else if (strcasecmp(key, "Inet_Vm_Threshold") == 0) {
-      p_param->inet_vm_threshold = strtod( value, NULL );
-    }
     else if (strcasecmp(key, "Concentrations") == 0) {
-      strncpy( p_param->concs, value, sizeof(p_param->concs) );
+      p_param->conc = strtol( value, NULL, 10 );
     }
 
   }

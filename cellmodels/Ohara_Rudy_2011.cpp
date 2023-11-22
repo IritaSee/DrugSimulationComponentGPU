@@ -627,12 +627,42 @@ CONSTANTS[(offset * num_of_constants) + Pnak] = (CONSTANTS[(offset * num_of_cons
 __device__ void ___applyDutta(double *CONSTANTS, int offset)
 {
 int num_of_constants = 146;
+//sisanya ganti jadi G (GKs for example)
+CONSTANTS[GKs + (offset * num_of_constants)] *= 1.870;
+CONSTANTS[GKr + (offset * num_of_constants)] *= 1.013;
+CONSTANTS[GK1 + (offset * num_of_constants)] *= 1.698;
+CONSTANTS[PCa + (offset * num_of_constants)] *= 1.007; //pca
+CONSTANTS[GNaL + (offset * num_of_constants)] *= 2.661;
+}
 
-CONSTANTS[IKs + (offset * num_of_constants)] *= 1.870;
-CONSTANTS[IKr + (offset * num_of_constants)] *= 1.013;
-CONSTANTS[IK1 + (offset * num_of_constants)] *= 1.698;
-CONSTANTS[ICaL + (offset * num_of_constants)] *= 1.007;
-CONSTANTS[INaL + (offset * num_of_constants)] *= 2.661;
+/*==============*/
+/* Added by ALI */
+/*==============*/
+__device__ void ___applyCvar(double *CONSTANTS, double *cvar, int offset)
+{
+  int num_of_constants = 146;
+
+  CONSTANTS[(offset * num_of_constants) +GNa] *= cvar[0 + (offset*18)];		// GNa
+  CONSTANTS[(offset * num_of_constants) +GNaL] *= cvar[1 + (offset*18)];		// GNaL
+  CONSTANTS[(offset * num_of_constants) +Gto] *= cvar[2 + (offset*18)];		// Gto
+  CONSTANTS[(offset * num_of_constants) +GKr] *= cvar[3 + (offset*18)];		// GKr
+  CONSTANTS[(offset * num_of_constants) +GKs] *= cvar[4 + (offset*18)];		// GKs
+  CONSTANTS[(offset * num_of_constants) +GK1] *= cvar[5 + (offset*18)];		// GK1
+  CONSTANTS[(offset * num_of_constants) +Gncx] *= cvar[6 + (offset*18)];		// GNaCa
+  CONSTANTS[(offset * num_of_constants) +GKb] *= cvar[7 + (offset*18)];		// GKb
+  CONSTANTS[(offset * num_of_constants) +PCa] *= cvar[8 + (offset*18)];		// PCa
+  CONSTANTS[(offset * num_of_constants) +Pnak] *= cvar[9 + (offset*18)];		// INaK
+  CONSTANTS[(offset * num_of_constants) +PNab] *= cvar[10 + (offset*18)];		// PNab
+  CONSTANTS[(offset * num_of_constants) +PCab] *= cvar[11 + (offset*18)];		// PCab
+  CONSTANTS[(offset * num_of_constants) +GpCa] *= cvar[12 + (offset*18)];		// GpCa
+  CONSTANTS[(offset * num_of_constants) +KmCaMK] *= cvar[17 + (offset*18)];	// KCaMK
+
+  // Additional constants
+  CONSTANTS[(offset * num_of_constants) +Jrel_scale] *= cvar[13 + (offset*18)];	// SERCA_Total (release)
+  CONSTANTS[(offset * num_of_constants) +Jup_scale] *= cvar[14 + (offset*18)];	// RyR_Total (uptake)
+  CONSTANTS[(offset * num_of_constants) +Jtr_scale] *= cvar[15 + (offset*18)];	// Trans_Total (NSR to JSR translocation)
+  CONSTANTS[(offset * num_of_constants) +Jleak_scale] *= cvar[16 + (offset*18)];	// Leak_Total (Ca leak from NSR)
+  // CONSTANTS[(offset * num_of_constants) +KCaMK_scale] *= cvar[17 + (offset*18)];	// KCaMK
 }
 
 __device__ void applyDrugEffect(double *CONSTANTS, double conc, double *ic50, double epsilon, int offset)
@@ -659,9 +689,10 @@ CONSTANTS[PCa+(offset * num_of_constants)] = CONSTANTS[PCa+(offset * num_of_cons
 // 	___initConsts(type, offset);
 // }
 
-__device__ void initConsts(double *CONSTANTS, double *STATES, double type, double conc, double *ic50, bool is_dutta, int offset)
+__device__ void initConsts(double *CONSTANTS, double *STATES, double type, double conc, double *ic50, double *cvar, bool is_dutta, bool is_cvar,  int offset)
 {
   // int num_of_constants = 146;
+  // printf("ic50:%d %lf, %lf, %lf\n",offset,ic50[0 + (offset*14)],ic50[1 + (offset*14)],ic50[2 + (offset*14)]);
 
 	___initConsts(CONSTANTS, STATES, type, offset); // initconst kan minta 
 	// // mpi_printf(0,"Celltype: %lf\n", CONSTANTS[celltype]);
@@ -670,6 +701,10 @@ __device__ void initConsts(double *CONSTANTS, double *STATES, double type, doubl
 	// #endif
 	if(is_dutta == true){
 		___applyDutta(CONSTANTS, offset);
+	}
+
+  if(is_cvar == true){
+		___applyCvar(CONSTANTS, cvar, offset);
 	}
 	// #ifndef COMPONENT_PATCH
 	// // mpi_printf(0,"After Dutta %lf %lf %lf %lf %lf\n", CONSTANTS[PCa], CONSTANTS[GK1], CONSTANTS[GKs], CONSTANTS[GNaL], CONSTANTS[GKr]);

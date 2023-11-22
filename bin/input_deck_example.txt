@@ -1,0 +1,10 @@
+Basic_Cycle_Length = 2000.0
+Number_of_Pacing = 10
+Simulation_Mode = 0
+Celltype = 0
+Is_Dutta = 1
+Use_Conductance_Variability = 0
+Pace_Find_Steepest = 5
+Drug_Name = quinidine
+Concentrations = 9711.0
+GPU_Index = 0
