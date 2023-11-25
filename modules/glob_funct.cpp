@@ -104,12 +104,13 @@ void edison_assign_params(int argc, char *argv[], param_t *p_param)
     else if (strcasecmp(key, "Time_Step") == 0) {
       p_param->dt = strtod( value, NULL );
     }
-    else if (strcasecmp(key, "Drug_Name") == 0) {
-      strncpy( p_param->drug_name, value, sizeof(p_param->concs) );
-    }
-    else if (strcasecmp(key, "Concentrations") == 0) {
-      p_param->conc = strtod( value, NULL );
-    }
+    //TODO: #Automation 1. eliminate drug_name and concentration on drug_name
+    // else if (strcasecmp(key, "Drug_Name") == 0) {
+    //   strncpy( p_param->drug_name, value, sizeof(p_param->concs) );
+    // }
+    // else if (strcasecmp(key, "Concentrations") == 0) {
+    //   p_param->conc = strtod( value, NULL );
+    // }
 
   }
 

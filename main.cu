@@ -1,8 +1,8 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
-// #include "modules/drug_sim.hpp"
 #include "modules/cipa_t.cuh"
+#include "modules/drug_conc.hpp"
 #include "modules/glob_funct.hpp"
 #include "modules/glob_type.hpp"
 #include "modules/gpu.cuh"
@@ -11,12 +11,16 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <filesystem>
 #include <iostream>
 #include <math.h>
+#include <regex>
+#include <string>
 #include <sys/stat.h>
 #include <vector>
+namespace fs = std::filesystem;
 
-#define ENOUGH ((CHAR_BIT * sizeof(int) - 1) / 3 + 2)
+#define ENOUGH ((CHAR_BIT * sizeof(int) - 1) / 3 + 3)
 char buffer[255];
 
 const unsigned int datapoint_size = 7500;
@@ -52,71 +56,17 @@ int gpu_check(unsigned int datasize) {
         printf("GPU No %d\nFree Memory: %ld, Total Memory: %ld (%f percent free)\n", id, free, total, percent * 100.0);
     }
     percent = 1.0 - (datasize / (float)total);
-    //// this code strangely gave out too small value, so i disable the safety switch for now
-
-    // printf("The program uses GPU No %d and %f percent of its memory\n", id,percent*100.0);
-    // printf("\n");
-    // if (datasize<=free) {
-    //   return 0;
-    // }
-    // else {
-    //   return 1;
-    // }
 
     return 0;
 }
 
-// since installing MPI in Windows
-// is quite a hassle, don't bother
-// to use it in Windows.
-// #ifndef _WIN32
-// 	#include <mpi.h>
-// #endif
-
-// constants to avoid magic values
-// static const char *RESULT_FOLDER_PATH = "result";
-// static const double CONTROL_CONC = 0.;
-
-// get the IC50 data from file
 drug_t get_IC50_data_from_file(const char *file_name);
 // return error and message based on the IC50 data
 int check_IC50_content(const drug_t *ic50, const param_t *p_param);
 
-// define MPI data structure for qinward_t to be broadcasted
-// #ifndef _WIN32
-// MPI_Datatype create_mpi_qinward_t();
-// #endif
+void freeingGPUMemory(double *d_ALGEBRAIC, double *d_CONSTANTS, double *d_RATES, double *d_STATES, param_t *d_p_param, cipa_t *temp_result, cipa_t *cipa_result, double *d_STATES_RESULT, double *d_ic50);
 
-// drug_t get_IC50_data_from_file(const char* file_name)
-// {
-//   FILE *fp_drugs;
-//   drug_t ic50;
-//   char *token, buffer[255];
-//   row_data temp_array;
-//   unsigned short idx;
-
-//   if( (fp_drugs = fopen(file_name, "r")) == NULL){
-//     printf("Cannot open file %s in %s at rank %d\n",
-//       file_name, mympi::host_name, mympi::rank);
-//     return ic50;
-//   }
-
-//   fgets(buffer, sizeof(buffer), fp_drugs); // skip header
-//   while( fgets(buffer, sizeof(buffer), fp_drugs) != NULL )
-//   { // begin line reading
-//     token = strtok( buffer, "," );
-//     idx = 0;
-//     while( token != NULL )
-//     { // begin data tokenizing
-//       temp_array.data[idx++] = strtod(token, NULL);
-//       token = strtok(NULL, ",");
-//     } // end data tokenizing
-//     ic50.push_back(temp_array);
-//   } // end line reading
-
-//   fclose(fp_drugs);
-//   return ic50;
-// }
+void prepGPUMemory(double *&d_ALGEBRAIC, int num_of_algebraic, int sample_size, double *&d_CONSTANTS, int num_of_constants, double *&d_RATES, int num_of_rates, double *&d_STATES, int num_of_states, param_t *&d_p_param, cipa_t *&temp_result, cipa_t *&cipa_result, double *&d_STATES_RESULT, double *&d_ic50, double *ic50, param_t *p_param);
 
 int get_IC50_data_from_file(const char *file_name, double *ic50) {
     /*
@@ -196,14 +146,7 @@ int check_IC50_content(const drug_t *ic50, const param_t *p_param) {
     } else if (p_param->pace_max < 750 && p_param->pace_max > 1000) {
         printf("Make sure the maximum pace is around 750 to 1000!\n");
         return 3;
-    }
-    // else if(mympi::size > ic50->size()){
-    // 	printf("%s\n%s\n",
-    //               "Overflow of MPI Process!",
-    //               "Make sure MPI Size is less than or equal the number of sample");
-    // 	return 4;
-    // }
-    else {
+    } else {
         return 0;
     }
 }
@@ -217,66 +160,188 @@ int main(int argc, char **argv) {
     // cudaMalloc(&thread_id, sizeof(mycuda));
 
     // input variables for cell simulation
-    param_t *p_param, *d_p_param;
-    p_param = new param_t();
-    p_param->init();
-    edison_assign_params(argc, argv, p_param);
-    p_param->show_val();
+    param_t *t_param;
+    t_param = new param_t();
+    t_param->init();
+    edison_assign_params(argc, argv, t_param);
+    char drug_dir[1024];
+    strcpy(drug_dir, t_param->hill_file);
 
-    double *ic50; // temporary
-    double *cvar;
+    // TODO: Automation 3. check file inside folder
+    for (const auto &entry : fs::directory_iterator(drug_dir)) {
+        param_t *p_param, *d_p_param;
+        p_param = new param_t();
+        p_param->init();
+        edison_assign_params(argc, argv, p_param);
 
-    ic50 = (double *)malloc(14 * sample_limit * sizeof(double));
+        std::filesystem::directory_entry dir_entry = entry;
+        std::string entry_str = dir_entry.path().string();
+        std::cout << entry_str << std::endl;
+        std::regex pattern("/([a-zA-Z]+)");
+        std::smatch match;
+        std::regex_search(entry_str, match, pattern);
 
-    const double CONC = p_param->conc;
+        // TODO: Automation 2. create drug_name and conc
+        strcpy(p_param->drug_name, match[1].str().c_str());
+        strcpy(p_param->hill_file, drug_dir);
+        strcat(p_param->hill_file, match[1].str().c_str());
+        strcat(p_param->hill_file, "/IC50_samples.csv");
 
-    double *d_ic50;
-    double *d_cvar;
-    double *d_ALGEBRAIC;
-    double *d_CONSTANTS;
-    double *d_RATES;
-    double *d_STATES;
+        for (int cmax = 1; cmax <= 4; cmax++) {
+            p_param->conc = getValue(drugConcentration, match[1].str()) * cmax;
+            p_param->show_val();
 
-    double *d_STATES_RESULT;
+            double *ic50; // temporary
+            double *cvar;
 
-    // double *time;
-    // double *dt;
-    // double *states;
-    // double *ical;
-    // double *inal;
-    // double *cai_result;
-    // double *ina;
-    // double *ito;
-    // double *ikr;
-    // double *iks;
-    // double *ik1;
-    cipa_t *temp_result, *cipa_result;
+            ic50 = (double *)malloc(14 * sample_limit * sizeof(double));
 
-    int num_of_constants = 146;
-    int num_of_states = 41;
-    int num_of_algebraic = 199;
-    int num_of_rates = 41;
+            const double CONC = p_param->conc;
 
-    // snprintf(buffer, sizeof(buffer),
-    //   "./drugs/bepridil/IC50_samples.csv"
-    //   // "./drugs/bepridil/IC50_optimal.csv"
-    //   // "./IC50_samples.csv"
-    //   );
-    int sample_size = get_IC50_data_from_file(p_param->hill_file, ic50);
-    if (sample_size == 0)
-        printf("Something problem with the IC50 file!\n");
-    // else if(sample_size > 2000)
-    //     printf("Too much input! Maximum sample data is 2000!\n");
-    printf("Sample size: %d\n", sample_size);
-    printf("Set GPU Number: %d\n", p_param->gpu_index);
+            double *d_ic50;
+            double *d_cvar;
+            double *d_ALGEBRAIC;
+            double *d_CONSTANTS;
+            double *d_RATES;
+            double *d_STATES;
+            double *d_STATES_RESULT;
 
-    cudaSetDevice(p_param->gpu_index);
+            cipa_t *temp_result, *cipa_result;
 
-    if (p_param->is_cvar == true) {
-        int cvar_sample = get_cvar_data_from_file(p_param->cvar_file, sample_size, cvar);
-        printf("Reading: %d Conductance Variability samples\n", cvar_sample);
+            int num_of_constants = 146;
+            int num_of_states = 41;
+            int num_of_algebraic = 199;
+            int num_of_rates = 41;
+
+            int sample_size = get_IC50_data_from_file(p_param->hill_file, ic50);
+            if (sample_size == 0)
+                printf("Something problem with the IC50 file!\n");
+            // else if(sample_size > 2000)
+            //     printf("Too much input! Maximum sample data is 2000!\n");
+            printf("Sample size: %d\n", sample_size);
+            printf("Set GPU Number: %d\n", p_param->gpu_index);
+
+            cudaSetDevice(p_param->gpu_index);
+
+            if (p_param->is_cvar == true) {
+                int cvar_sample = get_cvar_data_from_file(p_param->cvar_file, sample_size, cvar);
+                printf("Reading: %d Conductance Variability samples\n", cvar_sample);
+            }
+
+            prepGPUMemory(d_ALGEBRAIC, num_of_algebraic, sample_size, d_CONSTANTS, num_of_constants, d_RATES, num_of_rates, d_STATES, num_of_states, d_p_param, temp_result, cipa_result, d_STATES_RESULT, d_ic50, ic50, p_param);
+
+            tic();
+            printf("Timer started, doing simulation.... \n\n\nGPU Usage at this moment: \n");
+            int thread;
+            if (sample_size >= 100) {
+                thread = 100;
+            } else
+                thread = sample_size;
+            int block = int(ceil(sample_size / thread));
+            // int block = (sample_size + thread - 1) / thread;
+            if (gpu_check(15 * sample_size * datapoint_size * sizeof(double) + sizeof(param_t)) == 1) {
+                printf("GPU memory insufficient!\n");
+                return 0;
+            }
+            printf("Sample size: %d\n", sample_size);
+            cudaSetDevice(p_param->gpu_index);
+            printf("\n   Configuration: \n\n\tblock\t||\tthread\n---------------------------------------\n  \t%d\t||\t%d\n\n\n", block, thread);
+            // initscr();
+            // printf("[____________________________________________________________________________________________________]  0.00 %% \n");
+
+            kernel_DrugSimulation<<<block, thread>>>(d_ic50, d_cvar, d_CONSTANTS, d_STATES, d_RATES, d_ALGEBRAIC,
+                                                     d_STATES_RESULT,
+                                                     sample_size,
+                                                     temp_result, cipa_result,
+                                                     d_p_param);
+            // block per grid, threads per block
+            // endwin();
+
+            cudaDeviceSynchronize();
+
+            printf("allocating memory for computation result in the CPU, malloc style \n");
+            double *h_states;
+            cipa_t *h_cipa_result;
+
+            h_states = (double *)malloc(num_of_states * sample_size * sizeof(double));
+            h_cipa_result = (cipa_t *)malloc(sample_size * sizeof(cipa_t));
+            printf("...allocating for all states, all set!\n");
+
+            ////// copy the data back to CPU, and write them into file ////////
+            printf("copying the data back to the CPU \n");
+
+            cudaMemcpy(h_states, d_STATES_RESULT, sample_size * num_of_states * sizeof(double), cudaMemcpyDeviceToHost);
+            cudaMemcpy(h_cipa_result, cipa_result, sample_size * sizeof(cipa_t), cudaMemcpyDeviceToHost);
+
+            // TODO: Automation 4. Free up GPU memory
+            freeingGPUMemory(d_ALGEBRAIC, d_CONSTANTS, d_RATES, d_STATES, 
+                            d_p_param, temp_result, cipa_result, d_STATES_RESULT, d_ic50);
+
+            FILE *writer;
+            int check;
+            bool folder_created = false;
+
+            printf("writing to file... \n");
+            char conc_str[ENOUGH];
+            char filename[500] = "./result/";
+            char dvmdt_file[500];
+            sprintf(conc_str, "%.2lf", CONC);
+            strcat(filename, p_param->drug_name);
+            strcat(filename, "_");
+            strcat(filename, conc_str);
+            strcat(filename, "/");
+            if (folder_created == false) {
+                check = mkdir(filename, 0777);
+                // check if directory is created or not
+                if (!check) {
+                    printf("Directory created\n");
+                } else {
+                    printf("Unable to create directory\n");
+                }
+                folder_created = true;
+            }
+
+            // strcat(filename,conc_str);
+            strcpy(dvmdt_file, filename);
+            strcat(filename, "_state_only.csv");
+            // sample loop
+            writer = fopen(filename, "w");
+            fprintf(writer, "V,CaMKt,cass,nai,nass,ki,kss,cansr,cajsr,cai,m,hf,hs,j,hsp,jp,mL,hL,hLp,a,iF,iS,ap,iFp,iSp,d,ff,fs,fcaf,fcas,jca,ffp,fcafp,nca,xrf,xrs,xs1,xs2,xk1,Jrelnp,Jrelp,\n");
+            for (int sample_id = 0; sample_id < sample_size; sample_id++) {
+
+                // fprintf(writer,"%d,",sample_id);
+                for (int datapoint = 0; datapoint < num_of_states - 1; datapoint++) {
+                    // if (h_time[ sample_id + (datapoint * sample_size)] == 0.0) {continue;}
+                    fprintf(writer, "%lf,", // change this into string, or limit the decimal accuracy, so we can decrease filesize
+                            h_states[(sample_id * num_of_states) + datapoint]);
+                }
+                fprintf(writer, "%lf\n", // write last data
+                        h_states[(sample_id * num_of_states) + num_of_states - 1]
+
+                        // 22.00
+                );
+            }
+            fclose(writer);
+
+            // dvmdt file
+            strcat(dvmdt_file, "_dvmdt.csv");
+            writer = fopen(dvmdt_file, "w");
+            fprintf(writer, "Sample,dVm/dt\n");
+            for (int sample_id = 0; sample_id < sample_size; sample_id++) {
+
+                fprintf(writer, "%d,%lf\n", // write last data
+                        sample_id,
+                        h_cipa_result[sample_id].dvmdt_repol);
+            }
+            fclose(writer);
+
+            toc();
+        }
     }
+    return 0;
+}
 
+void prepingGPUMemory(double *&d_ALGEBRAIC, int num_of_algebraic, int sample_size, double *&d_CONSTANTS, int num_of_constants, double *&d_RATES, int num_of_rates, double *&d_STATES, int num_of_states, param_t *&d_p_param, cipa_t *&temp_result, cipa_t *&cipa_result, double *&d_STATES_RESULT, double *&d_ic50, double *ic50, param_t *p_param) {
     printf("preparing GPU memory space \n");
     cudaMalloc(&d_ALGEBRAIC, num_of_algebraic * sample_size * sizeof(double));
     cudaMalloc(&d_CONSTANTS, num_of_constants * sample_size * sizeof(double));
@@ -289,17 +354,6 @@ int main(int argc, char **argv) {
     cudaMalloc(&temp_result, sample_size * sizeof(cipa_t));
     cudaMalloc(&cipa_result, sample_size * sizeof(cipa_t));
 
-    // cudaMalloc(&time, sample_size * datapoint_size * sizeof(double));
-    // cudaMalloc(&dt, sample_size * datapoint_size * sizeof(double));
-    // cudaMalloc(&states, sample_size * datapoint_size * sizeof(double));
-    // cudaMalloc(&ical, sample_size * datapoint_size * sizeof(double));
-    // cudaMalloc(&inal, sample_size * datapoint_size * sizeof(double));
-    // cudaMalloc(&cai_result, sample_size * datapoint_size * sizeof(double));
-    // cudaMalloc(&ina, sample_size * datapoint_size * sizeof(double));
-    // cudaMalloc(&ito, sample_size * datapoint_size * sizeof(double));
-    // cudaMalloc(&ikr, sample_size * datapoint_size * sizeof(double));
-    // cudaMalloc(&iks, sample_size * datapoint_size * sizeof(double));
-    // cudaMalloc(&ik1, sample_size * datapoint_size * sizeof(double));
     cudaMalloc(&d_STATES_RESULT, num_of_states * sample_size * sizeof(double));
 
     printf("Copying sample files to GPU memory space \n");
@@ -309,121 +363,16 @@ int main(int argc, char **argv) {
     cudaMemcpy(d_ic50, ic50, sample_size * 14 * sizeof(double), cudaMemcpyHostToDevice);
     // cudaMemcpy(d_cvar, cvar, sample_size * 18 * sizeof(double), cudaMemcpyHostToDevice);
     cudaMemcpy(d_p_param, p_param, sizeof(param_t), cudaMemcpyHostToDevice);
+}
 
-    // // Get the maximum number of active blocks per multiprocessor
-    // cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocks, do_drug_sim_analytical, threadsPerBlock);
-
-    // // Calculate the total number of blocks
-    // int numTotalBlocks = numBlocks * cudaDeviceGetMultiprocessorCount();
-
-    tic();
-    printf("Timer started, doing simulation.... \n\n\nGPU Usage at this moment: \n");
-    int thread;
-    if (sample_size >= 100) {
-        thread = 100;
-    } else
-        thread = sample_size;
-    int block = int(ceil(sample_size / thread));
-    // int block = (sample_size + thread - 1) / thread;
-    if (gpu_check(15 * sample_size * datapoint_size * sizeof(double) + sizeof(param_t)) == 1) {
-        printf("GPU memory insufficient!\n");
-        return 0;
-    }
-    printf("Sample size: %d\n", sample_size);
-    cudaSetDevice(p_param->gpu_index);
-    printf("\n   Configuration: \n\n\tblock\t||\tthread\n---------------------------------------\n  \t%d\t||\t%d\n\n\n", block, thread);
-    // initscr();
-    // printf("[____________________________________________________________________________________________________]  0.00 %% \n");
-
-    kernel_DrugSimulation<<<block, thread>>>(d_ic50, d_cvar, d_CONSTANTS, d_STATES, d_RATES, d_ALGEBRAIC,
-                                             d_STATES_RESULT,
-                                             // time, states, dt, cai_result,
-                                             // ina, inal,
-                                             // ical, ito,
-                                             // ikr, iks,
-                                             // ik1,
-                                             sample_size,
-                                             temp_result, cipa_result,
-                                             d_p_param);
-    // block per grid, threads per block
-    // endwin();
-
-    cudaDeviceSynchronize();
-
-    printf("allocating memory for computation result in the CPU, malloc style \n");
-    double *h_states;
-    cipa_t *h_cipa_result;
-
-    h_states = (double *)malloc(num_of_states * sample_size * sizeof(double));
-    h_cipa_result = (cipa_t *)malloc(sample_size * sizeof(cipa_t));
-    printf("...allocating for all states, all set!\n");
-
-    ////// copy the data back to CPU, and write them into file ////////
-    printf("copying the data back to the CPU \n");
-
-    cudaMemcpy(h_states, d_STATES_RESULT, sample_size * num_of_states * sizeof(double), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_cipa_result, cipa_result, sample_size * sizeof(cipa_t), cudaMemcpyDeviceToHost);
-
-    FILE *writer;
-    int check;
-    bool folder_created = false;
-
-    printf("writing to file... \n");
-    // char sample_str[ENOUGH];
-    char conc_str[ENOUGH];
-    char filename[500] = "./result/";
-    char dvmdt_file[500];
-    sprintf(conc_str, "%lf", CONC);
-    strcat(filename, p_param->drug_name);
-    strcat(filename, "_");
-    strcat(filename, conc_str);
-    strcat(filename, "/");
-    if (folder_created == false) {
-        check = mkdir(filename, 0777);
-        // check if directory is created or not
-        if (!check) {
-            printf("Directory created\n");
-        } else {
-            printf("Unable to create directory\n");
-        }
-        folder_created = true;
-    }
-
-    // strcat(filename,conc_str);
-    strcpy(dvmdt_file, filename);
-    strcat(filename, "_state_only.csv");
-    // sample loop
-    writer = fopen(filename, "w");
-    fprintf(writer, "V,CaMKt,cass,nai,nass,ki,kss,cansr,cajsr,cai,m,hf,hs,j,hsp,jp,mL,hL,hLp,a,iF,iS,ap,iFp,iSp,d,ff,fs,fcaf,fcas,jca,ffp,fcafp,nca,xrf,xrs,xs1,xs2,xk1,Jrelnp,Jrelp,\n");
-    for (int sample_id = 0; sample_id < sample_size; sample_id++) {
-
-        // fprintf(writer,"%d,",sample_id);
-        for (int datapoint = 0; datapoint < num_of_states - 1; datapoint++) {
-            // if (h_time[ sample_id + (datapoint * sample_size)] == 0.0) {continue;}
-            fprintf(writer, "%lf,", // change this into string, or limit the decimal accuracy, so we can decrease filesize
-                    h_states[(sample_id * num_of_states) + datapoint]);
-        }
-        fprintf(writer, "%lf\n", // write last data
-                h_states[(sample_id * num_of_states) + num_of_states - 1]
-
-                // 22.00
-        );
-    }
-    fclose(writer);
-
-    // dvmdt file
-    strcat(dvmdt_file, "_dvmdt.csv");
-    writer = fopen(dvmdt_file, "w");
-    fprintf(writer, "Sample,dVm/dt\n");
-    for (int sample_id = 0; sample_id < sample_size; sample_id++) {
-
-        fprintf(writer, "%d,%lf\n", // write last data
-                sample_id,
-                h_cipa_result[sample_id].dvmdt_repol);
-    }
-    fclose(writer);
-
-    toc();
-
-    return 0;
+void freeingGPUMemory(double *d_ALGEBRAIC, double *d_CONSTANTS, double *d_RATES, double *d_STATES, param_t *d_p_param, cipa_t *temp_result, cipa_t *cipa_result, double *d_STATES_RESULT, double *d_ic50) {
+    cudaFree(d_ALGEBRAIC);
+    cudaFree(d_CONSTANTS);
+    cudaFree(d_RATES);
+    cudaFree(d_STATES);
+    cudaFree(d_p_param);
+    cudaFree(temp_result);
+    cudaFree(cipa_result);
+    cudaFree(d_STATES_RESULT);
+    cudaFree(d_ic50);
 }
