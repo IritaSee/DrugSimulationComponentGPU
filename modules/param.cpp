@@ -19,7 +19,7 @@ void param_t::init()
 
   sampling_limit = 7000;
 
-  is_time_series = true;
+  is_time_series = false;
 
   find_steepest_start = 5;
 

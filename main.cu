@@ -1,5 +1,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
+// #include <utils/lock_utils.hpp>
+#include "../CMLUtils/include/utils/lock_utils.hpp"
 
 // #include "modules/drug_sim.hpp"
 #include "modules/glob_funct.hpp"
@@ -17,6 +19,7 @@
 #include <sys/stat.h>
 
 #define ENOUGH ((CHAR_BIT * sizeof(int) - 1) / 3 + 2)
+#define COMMERCIAL
 char buffer[255];
 
 
@@ -226,7 +229,55 @@ int check_IC50_content(const drug_t* ic50, const param_t* p_param)
 	}
 }
 
+int bench_gpu(int argc, char **argv);
+
 int main(int argc, char **argv)
+{
+	// enable real-time output in stdout
+	setvbuf( stdout, NULL, _IONBF, 0 );
+#ifdef COMMERCIAL
+  printf("Commercial Version\n");
+	bool is_active;
+	int err_code;
+	lock_t *lock,*file_lock;
+	unsigned short days_elapsed;
+
+	lock = (lock_t*)malloc(sizeof(lock_t));
+	err_code = get_credentials(lock);
+	if(err_code > 0){
+		return err_code;
+	}
+	printf("Reading lock file...\n");
+	file_lock = (lock_t*)malloc(sizeof(lock_t));
+	err_code = read_lock_file(file_lock);
+  if(err_code > 0){
+    return err_code;
+  }
+
+	if(strncmp(lock->ipaddress, file_lock->ipaddress, sizeof(lock_t)) != 0){
+		fprintf(stderr, "ERROR: IP Address not matched with the lock!\n");
+		return 1;
+	}
+	is_active = is_trial_active(lock->timestamp,file_lock->timestamp,&days_elapsed);
+
+	if(is_active == false){
+		fprintf(stderr, "%s\n%s\n%s\n",
+		"Trial has been expired!",
+		"Please contact developer to activate it!",
+		"E-mail: kmlim@kumoh.ac.kr, aroli.marcellinus@gmail.com");
+    return 1;
+	}
+#endif
+	bench_gpu(argc,argv);
+
+#ifdef COMMERCIAL
+	free(file_lock);
+	free(lock);
+#endif
+	return 0;
+}
+
+int bench_gpu(int argc, char **argv)
 {
 	// enable real-time output in stdout
 	setvbuf( stdout, NULL, _IONBF, 0 );

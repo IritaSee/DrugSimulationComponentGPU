@@ -13,12 +13,15 @@
 # "all" and "clean" are good candidates.
 .PHONY: all, clean
 
+CMLUTILS_INC_DIR = ../CMLUtils/include
+CMLUTILS_LIB_DIR = ../CMLUtils/build
+
 # Define the final program name
 PROGNAME := drug_sim
 
 # Pre-processor flags to be used for includes (-I) and defines (-D) 
-CPPFLAGS := -I/usr/local/cuda/include
-# CPPFLAGS :=
+CPPFLAGS := -I/usr/local/cuda/include -I./ -I$(CMLUTILS_INC_DIR)
+
 # CXX to set the compiler
 # CXX := g++
 CXX := nvcc
@@ -27,14 +30,18 @@ CXXLINK := nvlink
 # CXXFLAGS is used for C++ compilation options.
 #CXXFLAGS += -Wall -O0 -fpermissive -std=c++11
 #CXXFLAGS += -Wall -O2 -fno-alias -fpermissive
-# CXXFLAGS += -Wall
+
+#commercial switch!
+CXXFLAGS += -DCOMMERCIAL
+
+
 # Use this if you want to use Tomek 2019 cell model.
 # Otherwise, comment it
 #CXXFLAGS += -DTOMEK_2019
 
 # LDFLAGS is used for linker (-g enables debug symbols)
 # LDFLAGS  += -g -L/usr/local/cuda/lib64
-LDFLAGS  += -g -L/usr/local/cuda/lib64 -arch=sm_86 -rdc=true
+LDFLAGS  += -g -L/usr/local/cuda/lib64 -arch=sm_86 -rdc=true -L$(CMLUTILS_LIB_DIR) -lcmlutils -lcurl -ljson-c
 
 # List the project' sources to compile or let the Makefile recognize
 # them for you using 'wildcard' function.

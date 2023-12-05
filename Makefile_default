@@ -32,9 +32,6 @@ CXXLINK := nvlink
 # Otherwise, comment it
 #CXXFLAGS += -DTOMEK_2019
 
-# Flag for activating commercial mode
-CXXFLAGS += -DCOMMERCIAL
-
 # LDFLAGS is used for linker (-g enables debug symbols)
 # LDFLAGS  += -g -L/usr/local/cuda/lib64
 LDFLAGS  += -g -L/usr/local/cuda/lib64 -arch=sm_86 -rdc=true
