@@ -16,7 +16,7 @@ all modules here are optimised for GPU and slightly different than the original 
 differences are related to GPU offset calculations
 */
 
-__device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONSTANTS, double *d_STATES, double *d_RATES, double *d_ALGEBRAIC, 
+__device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double d_conc, double *d_CONSTANTS, double *d_STATES, double *d_RATES, double *d_ALGEBRAIC, 
                                         double *d_STATES_RESULT, 
                                       //  double *time, double *states, double *out_dt,  double *cai_result, 
                                       //  double *ina, double *inal,
@@ -105,7 +105,7 @@ __device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONST
     // const unsigned int print_freq = (1./dt) * dtw;
     // unsigned short pace_count = 0;
     // unsigned short pace_steepest = 0;
-    double conc = p_param->conc; //mmol
+    double conc = d_conc; //mmol
     double type = p_param->celltype;
     double epsilon = 10E-14;
     // double top_dvmdt = -999.0;
@@ -134,7 +134,6 @@ __device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONST
     
 
     applyDrugEffect(d_CONSTANTS, conc, d_ic50, epsilon, sample_id);
-
     d_CONSTANTS[BCL + (sample_id * num_of_constants)] = bcl;
 
     // generate file for time-series output
@@ -243,7 +242,7 @@ __device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONST
           is_eligible_AP = false;
           // new part ends
            if(sample_id == 1000 || sample_id == 2000 || sample_id == 3000 || sample_id == 4000 || sample_id == 5000 || sample_id == 6000 || sample_id == 7000 || sample_id == 8000 || sample_id == 9000 ){
-            printf("core: %d pace count: %d t: %lf, steepest: %d, dvmdt_repol: %lf\n",sample_id,pace_count, tcurr[sample_id], pace_steepest, cipa_result[sample_id].dvmdt_repol);
+            printf("core: %d pace count: %d t: %lf, steepest: %d, dvmdt_repol: %lf, conc: %lf\n",sample_id,pace_count, tcurr[sample_id], pace_steepest, cipa_result[sample_id].dvmdt_repol, conc);
           }
           // printf("core: %d pace count: %d t: %lf, steepest: %d, dvmdt_repol: %lf, t_peak: %lf\n",sample_id,pace_count, tcurr[sample_id], pace_steepest, cipa_result[sample_id].dvmdt_repol,t_peak_capture);
           // writen = false;
@@ -407,7 +406,7 @@ __device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONST
 
 
 
-__global__ void kernel_DrugSimulation(double *d_ic50, double *d_cvar, double *d_CONSTANTS, double *d_STATES, double *d_RATES, double *d_ALGEBRAIC, 
+__global__ void kernel_DrugSimulation(double *d_ic50, double *d_cvar, double *d_conc, double *d_CONSTANTS, double *d_STATES, double *d_RATES, double *d_ALGEBRAIC, 
                                       double *d_STATES_RESULT, 
                                       // double *time, double *states, double *out_dt,  double *cai_result, 
                                       // double *ina, double *inal, 
@@ -427,7 +426,7 @@ __global__ void kernel_DrugSimulation(double *d_ic50, double *d_cvar, double *d_
     // cipa_t cipa_per_sample[2000];
     // printf("in\n");
     // printf("Calculating %d\n",thread_id);
-    kernel_DoDrugSim(d_ic50, d_cvar, d_CONSTANTS, d_STATES, d_RATES, d_ALGEBRAIC, 
+    kernel_DoDrugSim(d_ic50, d_cvar, d_conc[thread_id], d_CONSTANTS, d_STATES, d_RATES, d_ALGEBRAIC, 
                           d_STATES_RESULT, 
                           // time, states, out_dt, cai_result,
                           // ina, inal, 
