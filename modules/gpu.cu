@@ -29,7 +29,7 @@ __device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONST
                                        )
     {
     
-    unsigned int input_counter = 0;
+    unsigned long long input_counter = 0;
 
     int num_of_constants = 146;
     int num_of_states = 41;
@@ -382,7 +382,7 @@ __device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONST
           if((pace_count >= pace_max-last_drug_check_pace) && (pace_count<pace_max) ){
             int counter;
             for(counter=0; counter<num_of_states; counter++){
-              d_all_states[(sample_id * num_of_states) + counter + (sample_size * ((pace_max - pace_count - last_drug_check_pace)*(-1)))] = d_STATES[(sample_id * num_of_states) + counter];
+              d_all_states[(sample_id * num_of_states) + counter + (sample_size * (pace_count - last_drug_check_pace))] = d_STATES[(sample_id * num_of_states) + counter];
               // d_all_states[(sample_id * num_of_states) + counter] = d_STATES[(sample_id * num_of_states) + counter];
               // printf("%lf\n", d_all_states[(sample_id * num_of_states) + counter]);
             }
@@ -407,7 +407,7 @@ __device__ void kernel_DoDrugSim(double *d_ic50, double *d_cvar, double *d_CONST
             temp_result[sample_id].dvmdt_time[cipa_datapoint] = tcurr[sample_id];
            
             if(init_states_captured == false){
-              // printf("writinggg\n");
+              // printf("writinggg\n"); //cache file
               int counter;
               for(counter=0; counter<num_of_states; counter++){
                 d_STATES_RESULT[(sample_id * (num_of_states+1)) + counter] = d_STATES[(sample_id * num_of_states) + counter];
@@ -580,6 +580,11 @@ __device__ void kernel_DoDrugSim_single(double *d_ic50, double *d_cvar, double *
      double t_ca_peak, ca_amp50, ca_amp90;
      double cad50_prev, cad50_curr, cad90_prev, cad90_curr;
 
+     //inits
+     inal_auc = 0.0; ical_auc = 0.0; inet = 0.0;
+     t_ca_peak = 0.0; ca_amp50 = 0.0; ca_amp90 = 0.0;
+     vm_repol30 = 999.0; vm_repol50 = 999.0; vm_repol90= 999.0;
+
     // char buffer[255];
 
     // static const int CALCIUM_SCALING = 1000000;
@@ -604,6 +609,7 @@ __device__ void kernel_DoDrugSim_single(double *d_ic50, double *d_cvar, double *
       // the very beginning -> the core number
       // printf("%lf,%lf\n", cache[1], cache[2+(num_of_states+2)]); -> this gives you the V for first and second sample
     }
+    
     // these values will follow cache file (instead of regular init)
     temp_result[sample_id].vm_valley = d_STATES[(sample_id * num_of_states) +V];
     temp_result[sample_id].ca_valley = d_STATES[(sample_id * num_of_states) +cai];
@@ -647,6 +653,18 @@ __device__ void kernel_DoDrugSim_single(double *d_ic50, double *d_cvar, double *
           inet += (d_ALGEBRAIC[(sample_id * num_of_algebraic) +INaL]+d_ALGEBRAIC[(sample_id * num_of_algebraic) +ICaL]+d_ALGEBRAIC[(sample_id * num_of_algebraic) +Ito]+d_ALGEBRAIC[(sample_id * num_of_algebraic) +IKr]+d_ALGEBRAIC[(sample_id * num_of_algebraic) +IKs]+d_ALGEBRAIC[(sample_id * num_of_algebraic) +IK1])*dt[sample_id];
           inal_auc += d_ALGEBRAIC[(sample_id * num_of_algebraic) +INaL]*dt[sample_id];
           ical_auc += d_ALGEBRAIC[(sample_id * num_of_algebraic) +ICaL]*dt[sample_id];
+          
+          // if (sample_id == 1){
+          // printf("%lf %lf %lf %lf %lf %lf\n", 
+          // (d_ALGEBRAIC[(sample_id * num_of_algebraic) +INaL]+d_ALGEBRAIC[(sample_id * num_of_algebraic) +ICaL]+d_ALGEBRAIC[(sample_id * num_of_algebraic) +Ito]+d_ALGEBRAIC[(sample_id * num_of_algebraic) +IKr]+d_ALGEBRAIC[(sample_id * num_of_algebraic) +IKs]+d_ALGEBRAIC[(sample_id * num_of_algebraic) +IK1])*dt[sample_id],
+          // d_ALGEBRAIC[(sample_id * num_of_algebraic) +INaL]*dt[sample_id], 
+          // d_ALGEBRAIC[(sample_id * num_of_algebraic) +ICaL]*dt[sample_id],
+          // inet,
+          // inal_auc,
+          // ical_auc
+          // );
+          // }
+          
           } 
           // how can we properly update this value?
           // temp_result[sample_id].ca_valley = temp_result[sample_id].cai_data[0];
@@ -884,7 +902,7 @@ __device__ void kernel_DoDrugSim_single(double *d_ic50, double *d_cvar, double *
         tcurr[sample_id] = tcurr[sample_id] + dt[sample_id];
         //printf("t after addition: %lf\n", tcurr[sample_id]);
        
-    } // while loop ends here 
+  } // while loop ends here 
     // __syncthreads();
 
     // looking for cad50 and 90

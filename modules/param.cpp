@@ -35,7 +35,7 @@ void param_t::init()
   snprintf(cache_file, sizeof(cache_file), "%s", "./result/33.00.csv");
   snprintf(cvar_file, sizeof(cvar_file), "%s", "./drugs/10000_pop.csv");
   snprintf(drug_name, sizeof(drug_name), "%s", "bepridil");
-  snprintf(concs, sizeof(concs), "%s", "66.0");
+  snprintf(concs, sizeof(concs), "%s", "33.0");
 }
 
 void param_t::show_val()

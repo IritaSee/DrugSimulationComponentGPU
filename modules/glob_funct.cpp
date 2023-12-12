@@ -113,7 +113,7 @@ void edison_assign_params(int argc, char *argv[], param_t *p_param)
       strncpy( p_param->drug_name, value, sizeof(p_param->concs) );
     }
     else if (strcasecmp(key, "Concentrations") == 0) {
-      p_param->conc = strtol( value, NULL, 10 );
+      p_param->conc = strtod( value, NULL);
     }
 
   }

@@ -701,12 +701,7 @@ int bench_gpu(int argc, char **argv)
     printf("preparing GPU memory space \n");
 
     if(p_param->is_cvar == true){
-      char buffer_cvar[255];
-      snprintf(buffer_cvar, sizeof(buffer_cvar),
-      "./drugs/10000_pop.csv"
-      // "./drugs/optimized_pop_10k.csv"
-      );
-      int cvar_sample = get_cvar_data_from_file(buffer_cvar,sample_size,cvar);
+      int cvar_sample = get_cvar_data_from_file(p_param->cvar_file,sample_size,cvar);
       printf("Reading: %d Conductance Variability samples\n",cvar_sample);
     }
 
@@ -721,8 +716,8 @@ int bench_gpu(int argc, char **argv)
     cudaMalloc(&temp_result, sample_size * sizeof(cipa_t));
     cudaMalloc(&cipa_result, sample_size * sizeof(cipa_t));
 
-    cudaMalloc(&d_STATES_RESULT, (num_of_states+1) * sample_size * sizeof(double));
-    cudaMalloc(&d_all_states, num_of_states * sample_size * p_param->find_steepest_start * sizeof(double));
+    cudaMalloc(&d_STATES_RESULT, (num_of_states+1) * sample_size * sizeof(double)); // for cache file
+    cudaMalloc(&d_all_states, num_of_states * sample_size * p_param->find_steepest_start * sizeof(double)); // for each sample 
 
     printf("Copying sample files to GPU memory space \n");
     cudaMalloc(&d_ic50, sample_size * 14 * sizeof(double));
@@ -780,8 +775,8 @@ int bench_gpu(int argc, char **argv)
     double *h_states, *h_all_states;
     cipa_t *h_cipa_result;
 
-    h_states = (double *)malloc((num_of_states+1) * sample_size * sizeof(double));
-    h_all_states = (double *)malloc( (num_of_states) * sample_size * p_param->find_steepest_start * sizeof(double));
+    h_states = (double *)malloc((num_of_states+1) * sample_size * sizeof(double)); //cache file
+    h_all_states = (double *)malloc( (num_of_states) * sample_size * p_param->find_steepest_start * sizeof(double)); //all core
     h_cipa_result = (cipa_t *)malloc(sample_size * sizeof(cipa_t));
     printf("...allocating for all states, all set!\n");
 
@@ -818,9 +813,10 @@ int bench_gpu(int argc, char **argv)
     // strcat(filename,sample_str);
     strcat(filename,".csv");
     printf("writing to %s ... \n", filename);
+    writer = fopen(filename,"w");
     // sample loop
     for (int sample_id = 0; sample_id<sample_size; sample_id++){
-      writer = fopen(filename,"a"); // because we have multiple fwrites
+      // writer = fopen(filename,"a"); // because we have multiple fwrites
       fprintf(writer,"%d,",sample_id); // write core number at the front
       for (int datapoint = 0; datapoint<num_of_states; datapoint++){
        // if (h_time[ sample_id + (datapoint * sample_size)] == 0.0) {continue;}
@@ -835,9 +831,9 @@ int bench_gpu(int argc, char **argv)
         fprintf(writer,"%.5f\n", h_states[(sample_id * (num_of_states+1))+num_of_states] );
         // fprintf(writer, "\n");
 
-      fclose(writer);
+      // fclose(writer);
     }
-//      fclose(writer);
+     fclose(writer);
 
     // // FILE *writer;
     // // int check;
@@ -873,8 +869,8 @@ int bench_gpu(int argc, char **argv)
       writer = fopen(filename,"w");
       for (int pacing = 0; pacing < p_param->find_steepest_start; pacing++){ //pace loop
        // if (h_time[ sample_id + (datapoint * sample_size)] == 0.0) {continue;}
-        for(int datapoint = 0; datapoint < num_of_rates; datapoint++){ // each data loop
-        fprintf(writer,"%lf,",h_all_states[((sample_id * num_of_states))+ datapoint + (sample_size * pacing)]);
+        for(int datapoint = 0; datapoint < num_of_states; datapoint++){ // each data loop
+        fprintf(writer,"%lf,",h_all_states[((sample_id * num_of_states)) + ((sample_size) * pacing) + datapoint]);
         // fprintf(writer,"%lf,",h_all_states[((sample_id * num_of_states))+ datapoint]);
         } 
         // fprintf(writer,"%d",p_param->find_steepest_start + pacing);
