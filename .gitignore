@@ -12,3 +12,4 @@ bin/drug_sim
 bin/result/*/*.csv
 bin/result/*/*/*.csv
 bin/result/parse.ipynb
+bin/cardio.lock
